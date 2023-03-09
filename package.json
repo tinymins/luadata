@@ -1,0 +1,34 @@
+{
+  "name": "luadata",
+  "version": "0.0.2",
+  "description": "This is a npm package that can serialize array and object to Lua table, or unserialize Lua table to array and object.",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "scripts": {
+    "dev": "father dev",
+    "build": "father build",
+    "build:deps": "father prebundle",
+    "prepublishOnly": "father doctor && npm run build"
+  },
+  "keywords": [
+    "lua",
+    "luadata",
+    "serialize",
+    "unserialize",
+    "data"
+  ],
+  "authors": [
+    "Emil Zhai <root@derzh.com>"
+  ],
+  "license": "BSD",
+  "files": [
+    "dist",
+    "compiled"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "father": "^4.1.6"
+  }
+}
