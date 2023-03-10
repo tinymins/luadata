@@ -5,6 +5,10 @@
     "moduleResolution": "node",
     "skipLibCheck": true,
     "strict": true,
-    "target": "ESNext"
+    "target": "ESNext",
+    "types": [
+      "jest",
+      "jest-extended"
+    ]
   }
 }

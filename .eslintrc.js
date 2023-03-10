@@ -25,7 +25,6 @@ module.exports = {
       experimentalObjectRestSpread: true,
     },
     sourceType: "module",
-    requireConfigFile: false,
   },
   env: {
     browser: true,
@@ -83,6 +82,14 @@ module.exports = {
       rules: {
         "@typescript-eslint/no-unused-vars": "off",
       },
+    },
+    {
+      files: ["*.test.ts"],
+      globals: {
+          "describe": "readonly",
+          "test": "readonly",
+          "expect": "readonly",
+      }
     },
   ],
 };
