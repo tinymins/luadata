@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "strict": true,
+    "baseUrl": "./",
     "declaration": true,
+    "moduleResolution": "node",
     "skipLibCheck": true,
-    "baseUrl": "./"
+    "strict": true,
+    "target": "ESNext"
   }
 }

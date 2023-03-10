@@ -2,13 +2,26 @@
   "name": "luadata",
   "version": "0.0.2",
   "description": "This is a npm package that can serialize array and object to Lua table, or unserialize Lua table to array and object.",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
+  "main": "lib/index.js",
+  "module": "es/index.js",
+  "unpkg": "dist/index.min.js",
+  "types": "lib/index.d.ts",
+  "typings": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./lib/index.js",
+      "import": "./es/index.js",
+      "types": "./lib/index.d.ts"
+    }
+  },
   "scripts": {
     "dev": "father dev",
     "build": "father build",
     "build:deps": "father prebundle",
-    "prepublishOnly": "father doctor && npm run build"
+    "prepublishOnly": "father doctor && npm run build",
+    "eslint": "eslint \"src/**/*.{js,jsx,ts,tsx,json}\" --format pretty",
+    "eslint:fix": "eslint \"src/**/*.{js,jsx,ts,tsx,json}\" --format pretty --fix",
+    "eslint:commit": "eslint --format pretty"
   },
   "keywords": [
     "lua",
@@ -29,6 +42,18 @@
     "access": "public"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.54.1",
+    "@typescript-eslint/parser": "^5.54.1",
+    "@babel/eslint-parser": "^7.19.1",
+    "eslint": "8.35.0",
+    "eslint-config-lvmcn": "0.0.59",
+    "eslint-formatter-pretty": "4.1.0",
+    "eslint-plugin-import": "2.27.5",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "6.1.1",
+    "eslint-plugin-simple-import-sort": "^10.0.0",
+    "eslint-plugin-unicorn": "^46.0.0",
+    "eslint-plugin-unused-imports": "2.0.0",
     "father": "^4.1.6"
   }
 }
