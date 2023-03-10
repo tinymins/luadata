@@ -78,9 +78,9 @@ describe('sum module', () => {
     const map = new Map();
     expect(serialize(map)).toBe('{}');
     map.set(1, 1);
-    map.set(2, 2);
+    map.set({ a: 2 }, [2]);
     map.set('3', '3');
-    expect(serialize(map)).toBe('{1,2,["3"]="3"}');
+    expect(serialize(map)).toBe('{1,[{a=2}]={2},["3"]="3"}');
   });
 
   test('serialize nested map to luadata', () => {
