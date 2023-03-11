@@ -1,9 +1,10 @@
 const rules = {
+  "complexity": "off",
   "no-new-func": "off",
   "no-sync": "off",
   "no-undefined": "error",
-  "no-void": "off",
   "no-underscore-dangle": "off",
+  "no-void": "off",
   "unicorn/no-array-callback-reference": "off",
   "unicorn/no-array-for-each": "off",
   "unicorn/no-array-reduce": "off",
