@@ -2,16 +2,15 @@
   "name": "luadata",
   "version": "1.0.0-alpha.1",
   "description": "This is a npm package that can serialize array and object to Lua table, or unserialize Lua table to array and object.",
-  "main": "lib/index.js",
-  "module": "es/index.js",
-  "unpkg": "dist/index.min.js",
-  "types": "lib/index.d.ts",
-  "typings": "lib/index.d.ts",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/cjs/index.d.ts",
+  "typings": "dist/cjs/index.d.ts",
   "exports": {
     ".": {
-      "require": "./lib/index.js",
-      "import": "./es/index.js",
-      "types": "./lib/index.d.ts"
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "types": "./dist/cjs/index.d.ts"
     }
   },
   "scripts": {
