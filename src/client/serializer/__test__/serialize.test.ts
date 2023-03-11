@@ -1,6 +1,6 @@
 import serialize from '../serialize';
 
-describe('sum module', () => {
+describe('serialize module', () => {
   test('serialize null to luadata', () => {
     expect(serialize(null)).toBe('nil');
   });
