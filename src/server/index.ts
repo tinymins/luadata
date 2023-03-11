@@ -1,1 +1,1 @@
-export default 'Hello father 4!';
+export * as serializer from './serializer';
