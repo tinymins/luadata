@@ -25,7 +25,66 @@ $ npm run build
 ```javascript
 import * as luadata from 'luadata';
 
-luadata.serialize(v, { indent: "\t", indentLevel: 0 });
+const v = {
+  some: 'luadata',
+};
+luadata.serialize(v); // '{some="luadata"}'
+```
+
+#### serialize.indent
+
+> Control if stringified data should be human-read formatted.
+
+```javascript
+import * as luadata from 'luadata';
+
+const v = {
+  some: 'luadata',
+};
+luadata.serialize(v, { indent: "    " });
+```
+
+Output
+
+```plain
+{
+    some = "luadata",
+}
+```
+
+#### serialize.indentLevel
+
+> Control stringified data should be human-read formatted at which level, notice that first line will not be automatic indented.
+
+```javascript
+import * as luadata from 'luadata';
+
+const v = {
+  some: 'luadata',
+};
+luadata.serialize(v, { indent: "    ", indentLevel: 1 });
+```
+
+Output
+
+```plain
+{
+        some = "luadata",
+    }
+```
+
+#### serialize.tuple
+
+> Control if the stringified data is a multi-value luadata.
+
+```javascript
+import * as luadata from 'luadata';
+
+const v = [
+  'This is a tuple',
+  { a: 1 },
+];
+luadata.serialize(v, { tuple: true }); // 'This is a tuple',{a=1}
 ```
 
 ### unserialize
@@ -35,7 +94,35 @@ luadata.serialize(v, { indent: "\t", indentLevel: 0 });
 ```javascript
 import * as luadata from 'luadata';
 
-luadata.unserialize(luadata_str, { multival: false })
+const luadata_str = "{a=1,b=2,3}";
+
+luadata.unserialize(luadata_str); // new Map([["a", 1], ["b", 2], [1, 3]])
+luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
+```
+
+#### unserialize.tuple
+
+> Control if the `lua` data string is a tuple variable.
+
+```javascript
+import * as luadata from 'luadata';
+
+const luadata_str = "'This is a tuple',1,false";
+
+luadata.unserialize(luadata_str, { tuple: true }); // ['This is a tuple', 1, false]
+```
+
+#### unserialize.dictType
+
+> Control how will the luadata table will be transformed into javascript variable. Due to javascript limitation that javascript object key must be string or symbol, `object` mode will cause data/typing loss.
+
+```javascript
+import * as luadata from 'luadata';
+
+const luadata_str = "{a=1,b=2,['3']='three',[3]=3}";
+
+luadata.unserialize(luadata_str, { dictType: 'map' }); // new Map([["a", 1], ["b", 2], ["3", "three"], [3, 3]])
+luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
 ```
 
 ## LICENSE
