@@ -76,6 +76,7 @@ describe('unserialize module', () => {
   test('unserialize dict', () => {
     expect(unserialize('{1,2,["3"]="3"}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3']]));
     expect(unserialize('{1,2,["3"]="3"}', { dictType: 'object' })).toEqual({ 1: 1, 2: 2, 3: '3' });
+    expect(unserialize('{1,2,["3"]="3",3}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], [3, 3]]));
   });
 
   test('unserialize dict with indent', () => {
