@@ -125,6 +125,28 @@ luadata.unserialize(luadata_str, { dictType: 'map' }); // new Map([["a", 1], ["b
 luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
 ```
 
+#### unserialize.global
+
+> Provide luadata _G environment, supports both object like or map like. Due to javascript limitation that javascript object key must be string or symbol, `object` mode will cause data/typing loss.
+
+```javascript
+import * as luadata from 'luadata';
+
+luadata.unserialize("a", { global: { a: 1 } }); // 1
+luadata.unserialize("a['b'].c", { global: { a: { b: { c: { 1 } } } } }); // 1
+```
+
+#### unserialize.strictGlobal
+
+> Control if non-exists global variable is allowed, default value is `true`.
+
+```javascript
+import * as luadata from 'luadata';
+
+luadata.unserialize("b", { global: { a: 1 } }); // Error: attempt to refer a non-exists global variable.
+luadata.unserialize("b", { global: { a: 1 }, strictGlobal: false }); // undefined
+```
+
 ## LICENSE
 
 BSD

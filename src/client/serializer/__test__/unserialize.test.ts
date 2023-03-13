@@ -8,10 +8,6 @@ describe('unserialize module', () => {
   });
 
   test('unserialize bool', () => {
-    expect(() => unserialize('True'))
-      .toThrow('Unserialize luadata failed on pos 0:\n    True\n    ^\n    unexpected empty value.');
-    expect(() => unserialize('true1'))
-      .toThrow('Unserialize luadata failed on pos 4:\n    true1\n        ^\n    unexpected character.');
     expect(unserialize('true')).toBe(true);
     expect(unserialize('false')).toBe(false);
   });
@@ -31,6 +27,17 @@ describe('unserialize module', () => {
     expect(unserialize('-0.1')).toBe(-0.1);
     expect(unserialize('-100')).toBe(-100);
     expect(unserialize('-100.')).toBe(-100);
+  });
+
+  test('unserialize global variable', () => {
+    expect(() => unserialize('True'))
+      .toThrow('Unserialize luadata failed on pos 4:\n    True\n        ^\n    attempt to refer a non-exists global variable.');
+    expect(() => unserialize('true1'))
+      .toThrow('Unserialize luadata failed on pos 5:\n    rue1\n        ^\n    attempt to refer a non-exists global variable.');
+    expect(unserialize('a', { global: { a: 1 } })).toBe(1);
+    expect(unserialize('a.b', { global: { a: { b: 1 } } })).toBe(1);
+    expect(unserialize('a["b"].c', { global: { a: { b: { c: 1 } } } })).toBe(1);
+    expect(unserialize('a[LETTER.LOWER_B]', { global: { a: { b: 1 }, LETTER: { LOWER_B: 'b' } } })).toBe(1);
   });
 
   test('unserialize tuple', () => {

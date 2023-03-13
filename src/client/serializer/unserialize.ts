@@ -11,6 +11,14 @@ interface UnserializeOptions {
    * the container type for lua table, attention that due to javascript limitation `object` mode may cause table key type loss. Defaults to 'map'.
    */
   dictType?: 'object' | 'map';
+  /**
+   * the global for parsing luadata, defaults to empty object.
+   */
+  global?: Map<unknown, unknown> | Record<string, unknown>;
+  /**
+   * disable indexing non-exists global variable, defaults to true.
+   */
+  strictGlobal?: boolean;
 }
 
 interface BasicNode {
@@ -57,7 +65,15 @@ interface CommentNode extends BasicNode {
   commentType: 'INLINE' | 'MULTILINE';
 }
 
-type Node = RootNode | ValueNode | TableNode | TextNode | NumberNode | CommentNode;
+interface VariableNode extends BasicNode {
+  type: 'variable';
+  startPos: number;
+  state?: 'SIMPLE_KEY_START' | 'SIMPLE_KEY_MIDDLE' | 'WAIT_NEXT' | 'KEY_EXPRESSION_OPEN' | 'KEY_EXPRESSION_FINISH';
+  currentValue?: Map<unknown, unknown> | unknown;
+  isCurrentGlobal?: boolean;
+}
+
+type Node = RootNode | ValueNode | TableNode | TextNode | NumberNode | CommentNode | VariableNode;
 
 const print = (...v: unknown[]) => {
   console.debug(v.map(d => (typeof d === 'object' ? JSON.stringify(d) : String(d))).join(', '));
@@ -76,6 +92,24 @@ const TABLE_ENTRIES_SORTER = (kv1: TableNode['entries'][number], kv2: TableNode[
     return 1;
   }
   return String(k1).localeCompare(String(k2));
+};
+
+const recToMapR = (o: Map<unknown, unknown> | Record<string, unknown>): Map<unknown, unknown> => {
+  const m = new Map();
+  if (o instanceof Map) {
+    for (const [k, v] of o.entries()) {
+      m.set(k, v instanceof Map || (v && typeof v === 'object')
+        ? recToMapR(v as Record<string, unknown>)
+        : v);
+    }
+  } else {
+    for (const [k, v] of Object.entries(o)) {
+      m.set(k, v instanceof Map || (v && typeof v === 'object')
+        ? recToMapR(v as Record<string, unknown>)
+        : v);
+    }
+  }
+  return m;
 };
 
 const nodeToTable = (node: Node, dictType: UnserializeOptions['dictType']): unknown[] | Map<unknown, unknown> | Record<string, unknown> | null => {
@@ -106,11 +140,16 @@ const nodeToTable = (node: Node, dictType: UnserializeOptions['dictType']): unkn
   return null;
 };
 
-let MAX = 1000;
+const LUA_GLOBAL = {
+  true: true,
+  false: false,
+  nil: void 0,
+};
 
-const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map' }: UnserializeOptions = {}): T => {
+const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map', global: rawGlobal = {}, strictGlobal = true }: UnserializeOptions = {}): T => {
   const rawBin = raw;
   const rawBinLength = rawBin.length;
+  const global: Map<unknown, unknown> = recToMapR(Object.assign(rawGlobal, LUA_GLOBAL));
   const stack: Node[] = [];
   const root: RootNode = {
     type: 'root',
@@ -141,10 +180,6 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
   };
 
   while (pos <= rawBinLength) {
-    MAX -= 1;
-    if (MAX < 0) {
-      throw new Error('unserialize: too many steps');
-    }
     let byteCurrent = '';
     let byteCurrentIsSpace = false;
     if (pos < rawBinLength) {
@@ -196,6 +231,8 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         parentNode.childValue = node.data;
         node = parentNode;
         pos -= 1;
+      } else if (byteCurrentIsSpace) {
+        // pass
       } else if (detectComment(byteCurrent)) {
         // pass
       } else if (byteCurrent === '"' || byteCurrent === "'") {
@@ -210,15 +247,15 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
       } else if (byteCurrent === '{') {
         stack.push(node);
         node = { type: 'table', entries: [], luaLength: 0, state: 'SEEK_CHILD' };
-      } else if (byteCurrent === 't' && rawBin.slice(pos, pos + 4) === 'true') {
-        node.data = true;
-        node.fulfilled = true;
-        pos += 3;
-      } else if (byteCurrent === 'f' && rawBin.slice(pos, pos + 5) === 'false') {
-        node.data = false;
-        node.fulfilled = true;
-        pos += 4;
-      } else if (!byteCurrentIsSpace) { // byteCurrent === ',' || byteCurrent === '}'
+      } else if (
+        (byteCurrent >= 'a' && byteCurrent <= 'z')
+          || (byteCurrent >= 'A' && byteCurrent <= 'Z')
+          || (byteCurrent === '_')
+      ) {
+        stack.push(node);
+        node = { type: 'variable', startPos: pos };
+        pos -= 1;
+      } else {
         errmsg = 'unexpected empty value.';
         break;
       }
@@ -284,8 +321,8 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           // pass
         } else if (
           (byteCurrent >= 'A' && byteCurrent <= 'Z')
-              || (byteCurrent >= 'a' && byteCurrent <= 'z')
-              || byteCurrent === '_'
+            || (byteCurrent >= 'a' && byteCurrent <= 'z')
+            || byteCurrent === '_'
         ) {
           node.state = 'KEY_SIMPLE';
           node.simpleKeyStartPos = pos;
@@ -312,9 +349,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
       } else if (node.state === 'KEY_SIMPLE') {
         if (!(
           (byteCurrent >= 'A' && byteCurrent <= 'Z')
-              || (byteCurrent >= 'a' && byteCurrent <= 'z')
-              || (byteCurrent >= '0' && byteCurrent <= '9')
-              || byteCurrent === '_'
+            || (byteCurrent >= 'a' && byteCurrent <= 'z')
+            || (byteCurrent >= '0' && byteCurrent <= '9')
+            || byteCurrent === '_'
         )) {
           node.key = rawBin.slice(node.simpleKeyStartPos, pos);
           node.state = 'KEY_SIMPLE_END';
@@ -405,6 +442,88 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         }
       } else if (node.commentType === 'INLINE' && byteCurrent === '\n') {
         node = stack.pop();
+      }
+    } else if (node.type === 'variable') {
+      if (node.state === void 0) {
+        node.currentValue = global;
+        node.isCurrentGlobal = true;
+        node.state = 'SIMPLE_KEY_START';
+      }
+      if (node.state === 'SIMPLE_KEY_START') {
+        if (
+          (byteCurrent >= 'A' && byteCurrent <= 'Z')
+            || (byteCurrent >= 'a' && byteCurrent <= 'z')
+            || byteCurrent === '_'
+        ) {
+          node.state = 'SIMPLE_KEY_MIDDLE';
+          node.startPos = pos;
+        } else {
+          errmsg = 'unexpected character, variable name expected.';
+          break;
+        }
+      } else if (node.state === 'SIMPLE_KEY_MIDDLE') {
+        if (
+          (byteCurrent >= 'A' && byteCurrent <= 'Z')
+            || (byteCurrent >= 'a' && byteCurrent <= 'z')
+            || (byteCurrent >= '0' && byteCurrent <= '9')
+            || byteCurrent === '_'
+        ) {
+          // pass
+        } else {
+          if (!(node.currentValue instanceof Map)) {
+            errmsg = 'attempt to index a non-table value.';
+            break;
+          }
+          const key = rawBin.slice(node.startPos, pos);
+          if (strictGlobal && node.isCurrentGlobal && !global.has(key)) {
+            errmsg = 'attempt to refer a non-exists global variable.';
+            break;
+          }
+          node.currentValue = node.currentValue.get(key);
+          node.isCurrentGlobal = false;
+          node.state = 'WAIT_NEXT';
+          pos -= 1;
+        }
+      } else if (node.state === 'WAIT_NEXT') {
+        if (byteCurrent === '.') {
+          node.state = 'SIMPLE_KEY_START';
+        } else if (byteCurrent === '[') {
+          node.state = 'KEY_EXPRESSION_OPEN';
+          stack.push(node);
+          node = { type: 'value' };
+        } else {
+          const parentNode = stack.pop();
+          if (parentNode?.type !== 'value') {
+            errmsg = 'unexpected empty variable parent, this should never occur.';
+            break;
+          }
+          parentNode.data = node.currentValue;
+          parentNode.fulfilled = true;
+          node = parentNode;
+          pos -= 1;
+        }
+      } else if (node.state === 'KEY_EXPRESSION_OPEN') {
+        if (!(node.currentValue instanceof Map)) {
+          errmsg = 'attempt to index a non-table value.';
+          break;
+        }
+        node.currentValue = node.currentValue.get(node.childValue);
+        node.isCurrentGlobal = false;
+        node.state = 'KEY_EXPRESSION_FINISH';
+        pos -= 1;
+      } else if (node.state === 'KEY_EXPRESSION_FINISH') {
+        if (byteCurrent === '') {
+          errmsg = 'unexpected end of table key expression, "]" expected.';
+          break;
+        }
+        if (detectComment(byteCurrent)) {
+          // pass
+        } else if (byteCurrent === ']') {
+          node.state = 'WAIT_NEXT';
+        } else if (!byteCurrentIsSpace) {
+          errmsg = 'unexpected character, "]" expected.';
+          break;
+        }
       }
     }
     pos += 1;
