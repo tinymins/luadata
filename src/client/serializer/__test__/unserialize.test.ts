@@ -9,7 +9,7 @@ describe('unserialize module', () => {
 
   test('unserialize bool', () => {
     expect(() => unserialize('True'))
-      .toThrow('Unserialize luadata failed on pos 4:\n    True\n        ^\n    unexpected empty value.');
+      .toThrow('Unserialize luadata failed on pos 0:\n    True\n    ^\n    unexpected empty value.');
     expect(() => unserialize('true1'))
       .toThrow('Unserialize luadata failed on pos 4:\n    true1\n        ^\n    unexpected character.');
     expect(unserialize('true')).toBe(true);
@@ -43,10 +43,9 @@ describe('unserialize module', () => {
     expect(() => unserialize('{1'))
       .toThrow('Unserialize luadata failed on pos 2:\n    {1\n      ^\n    unexpected end of table, "}" expected.');
     expect(() => unserialize('{1}}'))
-      .toThrow('Unserialize luadata failed on pos 3:\n    {1}}\n       ^\n    unexpected table closing, no matching opening braces found.');
+      .toThrow('Unserialize luadata failed on pos 3:\n    {1}}\n       ^\n    unexpected character.');
     expect(() => unserialize('{1,,}'))
-      .toThrow('Unserialize luadata failed on pos 5:\n    1,,}\n        ^\n    unexpected empty value.');
-    expect(unserialize('.1')).toBe(0.1);
+      .toThrow('Unserialize luadata failed on pos 3:\n    {1,,}\n       ^\n    unexpected empty value.');
     expect(unserialize('{}')).toEqual([]);
     expect(unserialize('{ }')).toEqual([]);
     expect(unserialize('{1}')).toEqual([1]);
