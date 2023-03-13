@@ -38,6 +38,8 @@ describe('unserialize module', () => {
     expect(unserialize('a.b', { global: { a: { b: 1 } } })).toBe(1);
     expect(unserialize('a["b"].c', { global: { a: { b: { c: 1 } } } })).toBe(1);
     expect(unserialize('a[LETTER.LOWER_B]', { global: { a: { b: 1 }, LETTER: { LOWER_B: 'b' } } })).toBe(1);
+    expect(unserialize('a.b', { global: { a: new Map([['b', 1]]) } })).toBe(1);
+    expect(unserialize('a.b', { global: new Map([['a', new Map([['b', 1]])]]) })).toBe(1);
   });
 
   test('unserialize tuple', () => {

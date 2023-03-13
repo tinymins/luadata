@@ -75,6 +75,7 @@ interface VariableNode extends BasicNode {
 
 type Node = RootNode | ValueNode | TableNode | TextNode | NumberNode | CommentNode | VariableNode;
 
+/* istanbul ignore next */
 const print = (...v: unknown[]) => {
   console.debug(v.map(d => (typeof d === 'object' ? JSON.stringify(d) : String(d))).join(', '));
 };
@@ -112,34 +113,6 @@ const recToMapR = (o: Map<unknown, unknown> | Record<string, unknown>): Map<unkn
   return m;
 };
 
-const nodeToTable = (node: Node, dictType: UnserializeOptions['dictType']): unknown[] | Map<unknown, unknown> | Record<string, unknown> | null => {
-  if (node.type === 'table') {
-    if (node.entries.length === node.luaLength) {
-      const lst = [];
-      for (let index = 0; index < node.entries.length; index++) {
-        const kv = node.entries[index];
-        lst.push(kv[1]);
-      }
-      return lst;
-    } if (dictType === 'map') {
-      const dct = new Map();
-      for (let index = 0; index < node.entries.length; index++) {
-        const kv = node.entries[index];
-        dct.set(kv[0], kv[1]);
-      }
-      return dct;
-    } if (dictType === 'object') {
-      const rec: Record<string, unknown> = {};
-      for (let index = 0; index < node.entries.length; index++) {
-        const kv = node.entries[index];
-        rec[String(kv[0])] = kv[1];
-      }
-      return rec;
-    }
-  }
-  return null;
-};
-
 const LUA_GLOBAL = {
   true: true,
   false: false,
@@ -156,14 +129,11 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     entries: [],
     state: 'SEEK_VALUE',
   };
-  let node: Node | undefined = root;
+  let node: Node = root;
   let pos = 0;
   let errmsg = '';
 
   const detectComment = (byteCurrent: string) => {
-    if (!node) {
-      return false;
-    }
     if (byteCurrent === '-' && rawBin.slice(pos, pos + 4) === '--[[') {
       stack.push(node);
       node = { type: 'comment', startPos: pos + 3, commentType: 'MULTILINE' };
@@ -189,14 +159,11 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         || byteCurrent === '\n'
         || byteCurrent === '\t';
     }
+    /* istanbul ignore next */
     if (verbose) {
       print('[step] pos', pos, byteCurrent, node, stack);
     }
 
-    if (!node) {
-      errmsg = 'unexpected empty node';
-      break;
-    }
     if (node.type === 'root') {
       if (detectComment(byteCurrent)) {
         // pass
@@ -224,8 +191,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     } else if (node.type === 'value') {
       if (node.fulfilled) {
         const parentNode = stack.pop();
+        /* istanbul ignore next */
         if (!parentNode) {
-          errmsg = 'unexpected empty value parent, this should never occur.';
+          errmsg = 'ValueNode parent node is empty, this should never occur.';
           break;
         }
         parentNode.childValue = node.data;
@@ -270,8 +238,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         node.escaping = true;
       } else if (byteCurrent === node.quotingChar) {
         const parentNode = stack.pop();
+        /* istanbul ignore next */
         if (parentNode?.type !== 'value') {
-          errmsg = 'unexpected empty text parent, this should never occur.';
+          errmsg = 'TextNode parent node is not a ValueNode, this should never occur.';
           break;
         }
         parentNode.data = rawBin.slice(node.startPos, pos)
@@ -287,8 +256,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           node.numberType = 'FLOAT';
         } else if (byteCurrent === '' || byteCurrent < '0' || byteCurrent > '9') {
           const parentNode = stack.pop();
+          /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'unexpected empty number parent, this should never occur.';
+            errmsg = 'NumberNode(int) parent node is not a ValueNode, this should never occur.';
             break;
           }
           parentNode.data = Number.parseInt(rawBin.slice(node.startPos, pos), 10);
@@ -302,8 +272,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           break;
         } else {
           const parentNode = stack.pop();
+          /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'unexpected empty number parent, this should never occur.';
+            errmsg = 'NumberNode(float) parent node is not a ValueNode, this should never occur.';
             break;
           }
           parentNode.data = Number.parseFloat(rawBin.slice(node.startPos, pos));
@@ -332,11 +303,34 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           node = { type: 'value' };
         } else if (byteCurrent === '}') {
           const parentNode = stack.pop();
+          /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'unexpected table closing, no matching opening braces found.';
+            errmsg = 'TableNode parent node is not a ValueNode, this should never occur.';
             break;
           }
-          parentNode.data = nodeToTable(node, dictType);
+          /* istanbul ignore else */
+          if (node.entries.length === node.luaLength) {
+            const lst = [];
+            for (let index = 0; index < node.entries.length; index++) {
+              const kv = node.entries[index];
+              lst.push(kv[1]);
+            }
+            parentNode.data = lst;
+          } else if (dictType === 'map') {
+            const dct = new Map();
+            for (let index = 0; index < node.entries.length; index++) {
+              const kv = node.entries[index];
+              dct.set(kv[0], kv[1]);
+            }
+            parentNode.data = dct;
+          } else if (dictType === 'object') {
+            const rec: Record<string, unknown> = {};
+            for (let index = 0; index < node.entries.length; index++) {
+              const kv = node.entries[index];
+              rec[String(kv[0])] = kv[1];
+            }
+            parentNode.data = rec;
+          }
           parentNode.fulfilled = true;
           node = parentNode;
         } else if (!byteCurrentIsSpace) {
@@ -367,8 +361,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           stack.push(node);
           node = { type: 'value' };
         } else if (byteCurrent === ',' || byteCurrent === '}') {
+          /* istanbul ignore next */
           if (node.simpleKeyStartPos === void 0) {
-            errmsg = 'unexpected empty table simple key start pos, this should never occur.';
+            errmsg = 'table simpleKeyStartPos is empty, this should never occur.';
             break;
           }
           node.state = 'WAIT_VALUE';
@@ -437,11 +432,23 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     } else if (node.type === 'comment') {
       if (node.commentType === 'MULTILINE') {
         if (byteCurrent === ']' && rawBin.slice(pos, pos + 2) === ']]') {
-          node = stack.pop();
+          const parentNode = stack.pop();
+          /* istanbul ignore next */
+          if (!parentNode) {
+            errmsg = 'CommentNode(multiline) parent node is not a Node, this should never occur.';
+            break;
+          }
+          node = parentNode;
           pos += 1;
         }
       } else if (node.commentType === 'INLINE' && byteCurrent === '\n') {
-        node = stack.pop();
+        const parentNode = stack.pop();
+        /* istanbul ignore next */
+        if (!parentNode) {
+          errmsg = 'CommentNode(inline) parent node is not a Node, this should never occur.';
+          break;
+        }
+        node = parentNode;
       }
     } else if (node.type === 'variable') {
       if (node.state === void 0) {
@@ -493,8 +500,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           node = { type: 'value' };
         } else {
           const parentNode = stack.pop();
+          /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'unexpected empty variable parent, this should never occur.';
+            errmsg = 'VariableNode parent node is not a ValueNode, this should never occur.';
             break;
           }
           parentNode.data = node.currentValue;
@@ -527,6 +535,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
       }
     }
     pos += 1;
+    /* istanbul ignore next */
     if (verbose) {
       print('          ', pos, ' ', node, stack);
     }
@@ -534,6 +543,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
 
   // check if there is any errors
   if (!errmsg && stack.length > 0) {
+    /* istanbul ignore next */
     if (verbose) {
       print('stack', stack);
     }
