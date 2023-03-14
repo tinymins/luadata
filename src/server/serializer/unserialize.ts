@@ -95,47 +95,49 @@ const TABLE_ENTRIES_SORTER = (kv1: TableNode['entries'][number], kv2: TableNode[
   return String(k1).localeCompare(String(k2));
 };
 
-const recToMapR = (...list: (Map<unknown, unknown> | Record<string, unknown>)[]): Map<unknown, unknown> => {
-  const m = new Map();
-  for (const o of list) {
-    if (o instanceof Map) {
-      for (const [k, v] of o.entries()) {
-        m.set(k, v instanceof Map || (v && typeof v === 'object')
-          ? recToMapR(v as Record<string, unknown>)
-          : v);
-      }
-    } else {
-      for (const [k, v] of Object.entries(o)) {
-        m.set(k, v instanceof Map || (v && typeof v === 'object')
-          ? recToMapR(v as Record<string, unknown>)
-          : v);
-      }
-    }
+type RecursiveObjectToMap<T> = T extends Map<unknown, unknown>
+  ? Map<unknown, unknown>
+  : T extends unknown[]
+    ? unknown[]
+    : T extends object
+      ? Map<unknown, unknown>
+      : T;
+const recursiveObjectToMap = <T>(o: T): RecursiveObjectToMap<T> => {
+  if (Array.isArray(o)) {
+    return o.map(v => recursiveObjectToMap(v)) as RecursiveObjectToMap<T>;
   }
-  return m;
+  if (o instanceof Map) {
+    const m = new Map<unknown, unknown>();
+    for (const [k, v] of o.entries()) {
+      m.set(k, recursiveObjectToMap(v));
+    }
+    return m as RecursiveObjectToMap<T>;
+  }
+  if (o && typeof o === 'object') {
+    const m = new Map<unknown, unknown>();
+    for (const [k, v] of Object.entries(o)) {
+      m.set(k, recursiveObjectToMap(v));
+    }
+    return m as RecursiveObjectToMap<T>;
+  }
+  return o as RecursiveObjectToMap<T>;
 };
 
-const mapToRecR = (...list: (Map<unknown, unknown> | Record<string, unknown>)[]): Record<string, unknown> => {
-  const r: Record<string, unknown> = {};
-  for (const o of list) {
-    if (o instanceof Map) {
-      for (const [k, v] of o.entries()) {
-        r[String(k)] = v instanceof Map || (v && typeof v === 'object')
-          ? mapToRecR(v as Record<string, unknown>)
-          : v;
-      }
-    } else {
-      for (const [k, v] of Object.entries(o)) {
-        r[k] = v instanceof Map || (v && typeof v === 'object')
-          ? mapToRecR(v as Record<string, unknown>)
-          : v;
-      }
-    }
+const recursiveMapToObject = (o: unknown): unknown => {
+  if (Array.isArray(o)) {
+    return o.map(v => recursiveMapToObject(v));
   }
-  return r;
+  if (o instanceof Map) {
+    const r: Record<string, unknown> = {};
+    for (const [k, v] of o.entries()) {
+      r[String(k)] = recursiveMapToObject(v);
+    }
+    return r;
+  }
+  return o;
 };
 
-const LUA_BUILTIN_VAR = recToMapR({
+const LUA_BUILTIN_VAR = recursiveObjectToMap({
   true: true,
   false: false,
   nil: void 0,
@@ -147,8 +149,14 @@ const LUA_GLOBAL = {
   },
 };
 
-const createGlobal = (rawGlobal: UnserializeOptions['global'] = {}) => {
-  const global: Map<unknown, unknown> = recToMapR(LUA_GLOBAL, rawGlobal);
+const createGlobal = (rawGlobal: NonNullable<UnserializeOptions['global']>) => {
+  const global = new Map<unknown, unknown>();
+  for (const [k, v] of recursiveObjectToMap(LUA_GLOBAL).entries()) {
+    global.set(k, v);
+  }
+  for (const [k, v] of recursiveObjectToMap(rawGlobal).entries()) {
+    global.set(k, v);
+  }
   if (!global.has('_G')) {
     global.set('_G', global);
   }
@@ -224,7 +232,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
             errmsg = 'unexpected character.';
             break;
           }
-        } /* istanbul ignore next */ else {
+        } else /* istanbul ignore next */ {
           errmsg = `RootNode unexpected state, ${REPORT_MESSAGE}.`;
           break;
         }
@@ -246,7 +254,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         // pass
       } else if (byteCurrent === '"' || byteCurrent === "'") {
         stack.push(node);
-        node = { type: 'text', startPos: pos + 1, quotingChar: byteCurrent as '"' | "'" };
+        node = { type: 'text', startPos: pos + 1, quotingChar: byteCurrent };
       } else if (byteCurrent === '-' || (byteCurrent >= '0' && byteCurrent <= '9')) {
         stack.push(node);
         node = { type: 'number', startPos: pos, numberType: 'INT' };
@@ -371,7 +379,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
               rec[String(kv[0])] = kv[1];
             }
             parentNode.data = rec;
-          } /* istanbul ignore next */ else {
+          } else /* istanbul ignore next */ {
             errmsg = `TableNode unexpected dictType, ${REPORT_MESSAGE}.`;
             break;
           }
@@ -474,7 +482,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected character.';
           break;
         }
-      } /* istanbul ignore next */ else {
+      } else /* istanbul ignore next */ {
         errmsg = `TableNode unexpected state, ${REPORT_MESSAGE}.`;
         break;
       }
@@ -507,7 +515,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         if (byteCurrent === '') {
           pos -= 1;
         }
-      } /* istanbul ignore next */ else {
+      } else /* istanbul ignore next */ {
         errmsg = `CommentNode unexpected commentType, ${REPORT_MESSAGE}.`;
         break;
       }
@@ -546,12 +554,13 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
             node.currentValue = LUA_BUILTIN_VAR.has(key)
               ? LUA_BUILTIN_VAR.get(key)
               : global.get(key);
-          } else {
-            if (!(node.currentValue instanceof Map)) {
-              errmsg = 'attempt to index a non-table value.';
-              break;
-            }
+          } else if (node.currentValue instanceof Map) {
             node.currentValue = node.currentValue.get(key);
+          } else if (Array.isArray(node.currentValue)) {
+            node.currentValue = void 0;
+          } else {
+            errmsg = 'attempt to index a non-table value.';
+            break;
           }
           node.isCurrentGlobal = false;
           node.state = 'WAIT_NEXT';
@@ -573,8 +582,8 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           }
           if (node.currentValue instanceof Map || (node.currentValue && typeof node.currentValue === 'object')) {
             parentNode.data = dictType === 'map'
-              ? recToMapR(node.currentValue as Record<string, unknown>)
-              : mapToRecR(node.currentValue as Map<unknown, unknown>);
+              ? recursiveObjectToMap(node.currentValue)
+              : recursiveMapToObject(node.currentValue);
           } else {
             parentNode.data = node.currentValue;
           }
@@ -584,20 +593,15 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         }
       } else if (node.state === 'KEY_EXPRESSION_OPEN') {
         const key = node.childValue;
-        if (node.isCurrentGlobal) {
-          if (strictGlobal && !global.has(key) && !LUA_BUILTIN_VAR.has(key)) {
-            errmsg = 'attempt to refer a non-exists global variable.';
-            break;
-          }
-          node.currentValue = LUA_BUILTIN_VAR.has(key)
-            ? LUA_BUILTIN_VAR.get(key)
-            : global.get(key);
-        } else {
-          if (!(node.currentValue instanceof Map)) {
-            errmsg = 'attempt to index a non-table value.';
-            break;
-          }
+        if (node.currentValue instanceof Map) {
           node.currentValue = node.currentValue.get(key);
+        } else if (Array.isArray(node.currentValue)) {
+          node.currentValue = typeof key === 'number'
+            ? node.currentValue[key - 1]
+            : void 0;
+        } else {
+          errmsg = 'attempt to index a non-table value.';
+          break;
         }
         node.isCurrentGlobal = false;
         node.state = 'KEY_EXPRESSION_FINISH';
@@ -615,8 +619,11 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected character, "]" expected.';
           break;
         }
+      } else /* istanbul ignore next */ {
+        errmsg = `VariableNode unexpected state, ${REPORT_MESSAGE}.`;
+        break;
       }
-    } /* istanbul ignore next */ else {
+    } else /* istanbul ignore next */ {
       errmsg = `Node unexpected type, ${REPORT_MESSAGE}.`;
       break;
     }
@@ -627,17 +634,15 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     }
   }
 
+  /* istanbul ignore next */
   // check if there is any errors
   if (!errmsg && stack.length > 0) {
-    /* istanbul ignore next */
     if (verbose) {
       print('stack', stack);
     }
     errmsg = `Critical unserialize error: stack is not empty, ${REPORT_MESSAGE}.`;
   }
-  if (!errmsg && root.entries.length === 0) {
-    errmsg = 'nothing can be unserialized from input string.';
-  }
+
   if (errmsg) {
     pos = Math.min(pos, rawBinLength);
     const startPos = Math.max(0, pos - 4);

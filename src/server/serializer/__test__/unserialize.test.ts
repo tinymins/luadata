@@ -35,16 +35,35 @@ describe('unserialize module', () => {
       .toThrow('Unserialize luadata failed on pos 4:\n    True\n        ^\n    attempt to refer a non-exists global variable.');
     expect(() => unserialize('true1'))
       .toThrow('Unserialize luadata failed on pos 5:\n    rue1\n        ^\n    attempt to refer a non-exists global variable.');
+
     expect(unserialize('a', { global: { a: 1 } })).toBe(1);
     expect(unserialize('a.b', { global: { a: { b: 1 } } })).toBe(1);
     expect(unserialize('a["b"].c', { global: { a: { b: { c: 1 } } } })).toBe(1);
+    expect(unserialize('a[1]', { global: { a: new Map<unknown, unknown>([[1, 1], ['a', 2]]) } })).toBe(1);
+    expect(unserialize('a[1]', { global: { a: [1] } })).toBe(1);
+    expect(unserialize('a["a"]', { global: { a: [1] } })).toBe(void 0);
+    expect(unserialize('a["a" ]', { global: { a: [1] } })).toBe(void 0);
+    expect(unserialize('a["a"--[[comment]]]', { global: { a: [1] } })).toBe(void 0);
+    expect(unserialize('a.a', { global: { a: [1] } })).toBe(void 0);
     expect(unserialize('a[LETTER.LOWER_B]', { global: { a: { b: 1 }, LETTER: { LOWER_B: 'b' } } })).toBe(1);
     expect(unserialize('a.b', { global: { a: new Map([['b', 1]]) } })).toBe(1);
     expect(unserialize('a.b', { global: new Map([['a', new Map([['b', 1]])]]) })).toBe(1);
     expect(unserialize('a.b', { global: { a: { b: { c: 1 } } } })).toEqual(new Map([['c', 1]]));
-    expect(unserialize('a.b', { global: { a: { b: { c: 1 } } }, dictType: 'object' })).toEqual({ c: 1 });
-    expect(unserialize('_G.a.b', { global: new Map([['a', new Map([['b', 1]])]]) })).toBe(1);
+    expect(unserialize('a.b', { global: { a: { b: { c: [1] } } }, dictType: 'object' })).toEqual({ c: [1] });
+
+    expect(() => unserialize('a.b["c"]', { global: { a: { b: 1 } } }))
+      .toThrow('Unserialize luadata failed on pos 7:\n    ["c"]\n        ^\n    attempt to index a non-table value.');
+    expect(() => unserialize('a["b"', { global: { a: { b: 1 } } }))
+      .toThrow('Unserialize luadata failed on pos 5:\n    ["b"\n        ^\n    unexpected end of table key expression, "]" expected.');
+    expect(() => unserialize('a["b"?', { global: { a: { b: 1 } } }))
+      .toThrow('Unserialize luadata failed on pos 5:\n    ["b"?\n        ^\n    unexpected character, "]" expected.');
+    expect(() => unserialize('a.?', { global: { a: { b: 1 } } }))
+      .toThrow('Unserialize luadata failed on pos 2:\n    a.?\n      ^\n    unexpected character, variable name expected.');
+
+    expect(() => unserialize('_G.math.pi', { global: { _G: {} } }))
+      .toThrow('Unserialize luadata failed on pos 10:\n    h.pi\n        ^\n    attempt to index a non-table value.');
     expect(unserialize('_G.math.pi')).toBe(Math.PI);
+    expect(unserialize('_G.a.b', { global: new Map([['a', new Map([['b', 1]])]]) })).toBe(1);
   });
 
   test('unserialize tuple', () => {
