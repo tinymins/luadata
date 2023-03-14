@@ -51,6 +51,7 @@
     "eslint": "8.35.0",
     "eslint-config-lvmcn": "0.0.59",
     "eslint-formatter-pretty": "4.1.0",
+    "eslint-plugin-etc": "^2.0.2",
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "6.1.1",

@@ -63,7 +63,7 @@ module.exports = {
         project: "./tsconfig.json",
       },
       extends: [
-        "lvmcn/javascript",
+        "lvmcn/typescript",
       ],
       rules,
     },
