@@ -223,7 +223,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           node.entries.push(node.childValue);
           node.state = 'VALUE_END';
           pos -= 1;
-        } else if (node.state === 'VALUE_END') {
+        } else /* istanbul ignore else */ if (node.state === 'VALUE_END') {
           if (byteCurrent === '') {
             break;
           } else if (byteCurrent === ',') {
@@ -232,7 +232,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
             errmsg = 'unexpected character.';
             break;
           }
-        } else /* istanbul ignore next */ {
+        } else {
           errmsg = `RootNode unexpected state, ${REPORT_MESSAGE}.`;
           break;
         }
@@ -372,14 +372,14 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
               dct.set(kv[0], kv[1]);
             }
             parentNode.data = dct;
-          } else if (dictType === 'object') {
+          } else /* istanbul ignore else */ if (dictType === 'object') {
             const rec: Record<string, unknown> = {};
             for (let index = 0; index < node.entries.length; index++) {
               const kv = node.entries[index];
               rec[String(kv[0])] = kv[1];
             }
             parentNode.data = rec;
-          } else /* istanbul ignore next */ {
+          } else {
             errmsg = `TableNode unexpected dictType, ${REPORT_MESSAGE}.`;
             break;
           }
@@ -466,7 +466,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         node.state = 'VALUE_END';
         node.key = void 0;
         pos -= 1;
-      } else if (node.state === 'VALUE_END') {
+      } else /* istanbul ignore else */ if (node.state === 'VALUE_END') {
         if (byteCurrent === '') {
           errmsg = 'unexpected end of table, "}" expected.';
           break;
@@ -482,7 +482,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected character.';
           break;
         }
-      } else /* istanbul ignore next */ {
+      } else {
         errmsg = `TableNode unexpected state, ${REPORT_MESSAGE}.`;
         break;
       }
@@ -502,7 +502,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected end of multiline comment, "]]" expected.';
           break;
         }
-      } else if (node.commentType === 'INLINE') {
+      } else /* istanbul ignore else */ if (node.commentType === 'INLINE') {
         if (byteCurrent === '\n' || byteCurrent === '') {
           const parentNode = stack.pop();
           /* istanbul ignore next */
@@ -515,11 +515,11 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         if (byteCurrent === '') {
           pos -= 1;
         }
-      } else /* istanbul ignore next */ {
+      } else {
         errmsg = `CommentNode unexpected commentType, ${REPORT_MESSAGE}.`;
         break;
       }
-    } else if (node.type === 'variable') {
+    } else /* istanbul ignore else */ if (node.type === 'variable') {
       if (node.state === void 0) {
         node.isCurrentGlobal = true;
         node.state = 'SIMPLE_KEY_START';
@@ -606,7 +606,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         node.isCurrentGlobal = false;
         node.state = 'KEY_EXPRESSION_FINISH';
         pos -= 1;
-      } else if (node.state === 'KEY_EXPRESSION_FINISH') {
+      } else /* istanbul ignore else */ if (node.state === 'KEY_EXPRESSION_FINISH') {
         if (byteCurrent === '') {
           errmsg = 'unexpected end of table key expression, "]" expected.';
           break;
@@ -619,11 +619,11 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected character, "]" expected.';
           break;
         }
-      } else /* istanbul ignore next */ {
+      } else {
         errmsg = `VariableNode unexpected state, ${REPORT_MESSAGE}.`;
         break;
       }
-    } else /* istanbul ignore next */ {
+    } else {
       errmsg = `Node unexpected type, ${REPORT_MESSAGE}.`;
       break;
     }
