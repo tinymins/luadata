@@ -118,6 +118,7 @@ const LUA_GLOBAL = {
   false: false,
   nil: void 0,
 };
+const REPORT_MESSAGE = 'this should never occur, please report this issue to "https://github.com/tinymins/luadata/issues"';
 
 const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map', global: rawGlobal = {}, strictGlobal = true }: UnserializeOptions = {}): T => {
   const rawBin = raw;
@@ -186,6 +187,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
             errmsg = 'unexpected character.';
             break;
           }
+        } /* istanbul ignore next */ else {
+          errmsg = `RootNode unexpected state, ${REPORT_MESSAGE}.`;
+          break;
         }
       }
     } else if (node.type === 'value') {
@@ -193,7 +197,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         const parentNode = stack.pop();
         /* istanbul ignore next */
         if (!parentNode) {
-          errmsg = 'ValueNode parent node is empty, this should never occur.';
+          errmsg = `ValueNode parent node is empty, ${REPORT_MESSAGE}.`;
           break;
         }
         parentNode.childValue = node.data;
@@ -240,7 +244,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         const parentNode = stack.pop();
         /* istanbul ignore next */
         if (parentNode?.type !== 'value') {
-          errmsg = 'TextNode parent node is not a ValueNode, this should never occur.';
+          errmsg = `TextNode parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
           break;
         }
         parentNode.data = rawBin.slice(node.startPos, pos)
@@ -258,7 +262,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           const parentNode = stack.pop();
           /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'NumberNode(int) parent node is not a ValueNode, this should never occur.';
+            errmsg = `NumberNode(int) parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
             break;
           }
           parentNode.data = Number.parseInt(rawBin.slice(node.startPos, pos), 10);
@@ -274,7 +278,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           const parentNode = stack.pop();
           /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'NumberNode(float) parent node is not a ValueNode, this should never occur.';
+            errmsg = `NumberNode(float) parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
             break;
           }
           parentNode.data = Number.parseFloat(rawBin.slice(node.startPos, pos));
@@ -286,6 +290,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     } else if (node.type === 'table') {
       if (node.state === 'SEEK_CHILD') {
         if (byteCurrent === '') {
+          errmsg = 'unexpected end of table, "}" expected.';
           break;
         }
         if (detectComment(byteCurrent)) {
@@ -305,10 +310,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           const parentNode = stack.pop();
           /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'TableNode parent node is not a ValueNode, this should never occur.';
+            errmsg = `TableNode parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
             break;
           }
-          /* istanbul ignore else */
           if (node.entries.length === node.luaLength) {
             const lst = [];
             for (let index = 0; index < node.entries.length; index++) {
@@ -330,6 +334,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
               rec[String(kv[0])] = kv[1];
             }
             parentNode.data = rec;
+          } /* istanbul ignore next */ else {
+            errmsg = `TableNode unexpected dictType, ${REPORT_MESSAGE}.`;
+            break;
           }
           parentNode.fulfilled = true;
           node = parentNode;
@@ -360,10 +367,10 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           node.state = 'WAIT_VALUE';
           stack.push(node);
           node = { type: 'value' };
-        } else if (byteCurrent === ',' || byteCurrent === '}') {
+        } else {
           /* istanbul ignore next */
           if (node.simpleKeyStartPos === void 0) {
-            errmsg = 'table simpleKeyStartPos is empty, this should never occur.';
+            errmsg = `TableNode simpleKeyStartPos is empty, ${REPORT_MESSAGE}.`;
             break;
           }
           node.state = 'WAIT_VALUE';
@@ -416,8 +423,10 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         pos -= 1;
       } else if (node.state === 'VALUE_END') {
         if (byteCurrent === '') {
-          // pass
-        } else if (detectComment(byteCurrent)) {
+          errmsg = 'unexpected end of table, "}" expected.';
+          break;
+        }
+        if (detectComment(byteCurrent)) {
           // pass
         } else if (byteCurrent === ',') {
           node.state = 'SEEK_CHILD';
@@ -428,6 +437,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           errmsg = 'unexpected character.';
           break;
         }
+      } /* istanbul ignore next */ else {
+        errmsg = `TableNode unexpected state, ${REPORT_MESSAGE}.`;
+        break;
       }
     } else if (node.type === 'comment') {
       if (node.commentType === 'MULTILINE') {
@@ -435,20 +447,32 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           const parentNode = stack.pop();
           /* istanbul ignore next */
           if (!parentNode) {
-            errmsg = 'CommentNode(multiline) parent node is not a Node, this should never occur.';
+            errmsg = `CommentNode(multiline) parent node is not a Node, ${REPORT_MESSAGE}.`;
             break;
           }
           node = parentNode;
           pos += 1;
         }
-      } else if (node.commentType === 'INLINE' && byteCurrent === '\n') {
-        const parentNode = stack.pop();
-        /* istanbul ignore next */
-        if (!parentNode) {
-          errmsg = 'CommentNode(inline) parent node is not a Node, this should never occur.';
+        if (byteCurrent === '') {
+          errmsg = 'unexpected end of multiline comment, "]]" expected.';
           break;
         }
-        node = parentNode;
+      } else if (node.commentType === 'INLINE') {
+        if (byteCurrent === '\n' || byteCurrent === '') {
+          const parentNode = stack.pop();
+          /* istanbul ignore next */
+          if (!parentNode) {
+            errmsg = `CommentNode(inline) parent node is not a Node, ${REPORT_MESSAGE}.`;
+            break;
+          }
+          node = parentNode;
+        }
+        if (byteCurrent === '') {
+          pos -= 1;
+        }
+      } /* istanbul ignore next */ else {
+        errmsg = `CommentNode unexpected commentType, ${REPORT_MESSAGE}.`;
+        break;
       }
     } else if (node.type === 'variable') {
       if (node.state === void 0) {
@@ -502,7 +526,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           const parentNode = stack.pop();
           /* istanbul ignore next */
           if (parentNode?.type !== 'value') {
-            errmsg = 'VariableNode parent node is not a ValueNode, this should never occur.';
+            errmsg = `VariableNode parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
             break;
           }
           parentNode.data = node.currentValue;
@@ -533,6 +557,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           break;
         }
       }
+    } /* istanbul ignore next */ else {
+      errmsg = `Node unexpected type, ${REPORT_MESSAGE}.`;
+      break;
     }
     pos += 1;
     /* istanbul ignore next */
@@ -547,7 +574,7 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
     if (verbose) {
       print('stack', stack);
     }
-    errmsg = 'unexpected end of table, "}" expected.';
+    errmsg = `Critical unserialize error: stack is not empty, ${REPORT_MESSAGE}.`;
   }
   if (!errmsg && root.entries.length === 0) {
     errmsg = 'nothing can be unserialized from input string.';

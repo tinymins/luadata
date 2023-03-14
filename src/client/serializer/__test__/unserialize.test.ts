@@ -5,6 +5,7 @@ describe('unserialize module', () => {
     expect(() => unserialize('"str'))
       .toThrow('Unserialize luadata failed on pos 4:\n    "str\n        ^\n    unexpected string ending: missing close quote.');
     expect(unserialize('"str"')).toBe('str');
+    expect(unserialize('"\\"str"')).toBe('"str');
   });
 
   test('unserialize bool', () => {
@@ -82,9 +83,22 @@ describe('unserialize module', () => {
   });
 
   test('unserialize dict', () => {
-    expect(unserialize('{1,2,["3"]="3"}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3']]));
-    expect(unserialize('{1,2,["3"]="3"}', { dictType: 'object' })).toEqual({ 1: 1, 2: 2, 3: '3' });
-    expect(unserialize('{1,2,["3"]="3",3}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], [3, 3]]));
+    expect(() => unserialize('{[2'))
+      .toThrow('Unserialize luadata failed on pos 3:\n    {[2\n       ^\n    unexpected end of table key expression, "]" expected.');
+    expect(() => unserialize('{[2 ?]=1}'))
+      .toThrow('Unserialize luadata failed on pos 4:\n    {[2 ?]=1}\n        ^\n    unexpected character, "]" expected.');
+    expect(() => unserialize('{[2]$=1}'))
+      .toThrow('Unserialize luadata failed on pos 4:\n    {[2]$=1}\n        ^\n    unexpected character, "=" expected.');
+    expect(() => unserialize('{[2]=1$}'))
+      .toThrow('Unserialize luadata failed on pos 6:\n    2]=1$}\n        ^\n    unexpected character.');
+    expect(unserialize('{1,2,["3"]="3",a=1}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], ['a', 1]]));
+    expect(unserialize('{1,2,["3"]="3",a=1}', { dictType: 'object' })).toEqual({ 1: 1, 2: 2, 3: '3', a: 1 });
+    expect(unserialize('{1,2,["3"]="3",a =1}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], ['a', 1]]));
+    expect(unserialize('{1,2,["3"]="3",a--[[comment]]=1}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], ['a', 1]]));
+    expect(unserialize('{1,2,["3"]="3",["a"]--[[comment]]=1}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], ['a', 1]]));
+    expect(unserialize('{1,2,["3"]="3",["a"--[[comment]]]=1}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], ['3', '3'], ['a', 1]]));
+    expect(unserialize('{1,2,["3"]="3",true}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], [3, true], ['3', '3']]));
+    expect(unserialize('{1,2,["3"]="3",3,["4"]="4"}')).toEqual(new Map<unknown, unknown>([[1, 1], [2, 2], [3, 3], ['3', '3'], ['4', '4']]));
   });
 
   test('unserialize dict with indent', () => {
@@ -104,12 +118,17 @@ describe('unserialize module', () => {
     expect(() => unserialize('{ -- comment 1}'))
       .toThrow('Unserialize luadata failed on pos 15:\n    t 1}\n        ^\n    unexpected end of table, "}" expected.');
     expect(unserialize('{ -- comment\n1}')).toEqual([1]);
+    expect(unserialize(' -- comment\n{1}')).toEqual([1]);
   });
 
   test('unserialize with multiline comment', () => {
     expect(() => unserialize('{ --[[comment\n1}'))
-      .toThrow('Unserialize luadata failed on pos 16:\n    t\\n1}\n        ^\n    unexpected end of table, "}" expected.');
+      .toThrow('Unserialize luadata failed on pos 16:\n    t\\n1}\n        ^\n    unexpected end of multiline comment, "]]" expected.');
+    expect(unserialize(' --[[comment]]{1}')).toEqual([1]);
     expect(unserialize('{ --[[comment]]1}')).toEqual([1]);
     expect(unserialize('{ --[[comment\n ]]\n1}')).toEqual([1]);
+    expect(unserialize('{1--[[comment]]}')).toEqual([1]);
+    expect(unserialize('{1,--[[comment]]}')).toEqual([1]);
+    expect(unserialize('{[--[[comment]]1]=1}')).toEqual([1]);
   });
 });
