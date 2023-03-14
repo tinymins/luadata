@@ -28,7 +28,7 @@ import * as luadata from 'luadata';
 const v = {
   some: 'luadata',
 };
-luadata.serialize(v); // '{some="luadata"}'
+luadata.serializer.serialize(v); // '{some="luadata"}'
 ```
 
 #### serialize.indent
@@ -41,7 +41,7 @@ import * as luadata from 'luadata';
 const v = {
   some: 'luadata',
 };
-luadata.serialize(v, { indent: "    " });
+luadata.serializer.serialize(v, { indent: "    " });
 ```
 
 Output
@@ -62,7 +62,7 @@ import * as luadata from 'luadata';
 const v = {
   some: 'luadata',
 };
-luadata.serialize(v, { indent: "    ", indentLevel: 1 });
+luadata.serializer.serialize(v, { indent: "    ", indentLevel: 1 });
 ```
 
 Output
@@ -84,7 +84,7 @@ const v = [
   'This is a tuple',
   { a: 1 },
 ];
-luadata.serialize(v, { tuple: true }); // 'This is a tuple',{a=1}
+luadata.serializer.serialize(v, { tuple: true }); // 'This is a tuple',{a=1}
 ```
 
 ### unserialize
@@ -96,8 +96,8 @@ import * as luadata from 'luadata';
 
 const luadata_str = "{a=1,b=2,3}";
 
-luadata.unserialize(luadata_str); // new Map([["a", 1], ["b", 2], [1, 3]])
-luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
+luadata.serializer.unserialize(luadata_str); // new Map([["a", 1], ["b", 2], [1, 3]])
+luadata.serializer.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
 ```
 
 #### unserialize.tuple
@@ -109,7 +109,7 @@ import * as luadata from 'luadata';
 
 const luadata_str = "'This is a tuple',1,false";
 
-luadata.unserialize(luadata_str, { tuple: true }); // ['This is a tuple', 1, false]
+luadata.serializer.unserialize(luadata_str, { tuple: true }); // ['This is a tuple', 1, false]
 ```
 
 #### unserialize.dictType
@@ -121,8 +121,8 @@ import * as luadata from 'luadata';
 
 const luadata_str = "{a=1,b=2,['3']='three',[3]=3}";
 
-luadata.unserialize(luadata_str, { dictType: 'map' }); // new Map([["a", 1], ["b", 2], ["3", "three"], [3, 3]])
-luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
+luadata.serializer.unserialize(luadata_str, { dictType: 'map' }); // new Map([["a", 1], ["b", 2], ["3", "three"], [3, 3]])
+luadata.serializer.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 }
 ```
 
 #### unserialize.global
@@ -132,12 +132,12 @@ luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 
 ```javascript
 import * as luadata from 'luadata';
 
-luadata.unserialize("a", { global: { a: 1 } }); // 1
-luadata.unserialize("a['b'].c", { global: { a: { b: { c: 1 } } } }); // 1
-luadata.unserialize("a.b", { global: { a: { b: { c: 1 } } } }); // new Map([["c": 1]])
-luadata.unserialize("a.b", { global: { a: { b: { c: [1] } } } }); // new Map([["c": [1]]])
-luadata.unserialize("a.b", { global: { a: { b: { c: 1 } } }, dictType: 'object' }); // { c: 1 }
-luadata.unserialize("a.b", { global: { a: { b: { c: [1] } } }, dictType: 'object' }); // { c: [1] }
+luadata.serializer.unserialize("a", { global: { a: 1 } }); // 1
+luadata.serializer.unserialize("a['b'].c", { global: { a: { b: { c: 1 } } } }); // 1
+luadata.serializer.unserialize("a.b", { global: { a: { b: { c: 1 } } } }); // new Map([["c": 1]])
+luadata.serializer.unserialize("a.b", { global: { a: { b: { c: [1] } } } }); // new Map([["c": [1]]])
+luadata.serializer.unserialize("a.b", { global: { a: { b: { c: 1 } } }, dictType: 'object' }); // { c: 1 }
+luadata.serializer.unserialize("a.b", { global: { a: { b: { c: [1] } } }, dictType: 'object' }); // { c: [1] }
 ```
 
 #### unserialize.strictGlobal
@@ -147,8 +147,8 @@ luadata.unserialize("a.b", { global: { a: { b: { c: [1] } } }, dictType: 'object
 ```javascript
 import * as luadata from 'luadata';
 
-luadata.unserialize("b", { global: { a: 1 } }); // Error: attempt to refer a non-exists global variable.
-luadata.unserialize("b", { global: { a: 1 }, strictGlobal: false }); // undefined
+luadata.serializer.unserialize("b", { global: { a: 1 } }); // Error: attempt to refer a non-exists global variable.
+luadata.serializer.unserialize("b", { global: { a: 1 }, strictGlobal: false }); // undefined
 ```
 
 ## LICENSE
