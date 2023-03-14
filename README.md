@@ -133,7 +133,11 @@ luadata.unserialize(luadata_str, { dictType: 'object' }); // { a: 1, b: 2, 3: 3 
 import * as luadata from 'luadata';
 
 luadata.unserialize("a", { global: { a: 1 } }); // 1
-luadata.unserialize("a['b'].c", { global: { a: { b: { c: { 1 } } } } }); // 1
+luadata.unserialize("a['b'].c", { global: { a: { b: { c: 1 } } } }); // 1
+luadata.unserialize("a.b", { global: { a: { b: { c: 1 } } } }); // new Map([["c": 1]])
+luadata.unserialize("a.b", { global: { a: { b: { c: [1] } } } }); // new Map([["c": [1]]])
+luadata.unserialize("a.b", { global: { a: { b: { c: 1 } } }, dictType: 'object' }); // { c: 1 }
+luadata.unserialize("a.b", { global: { a: { b: { c: [1] } } }, dictType: 'object' }); // { c: [1] }
 ```
 
 #### unserialize.strictGlobal
