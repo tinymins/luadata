@@ -1,6 +1,6 @@
 {
   "name": "luadata",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "This is a npm package that can serialize array and object to Lua table, or unserialize Lua table to array and object.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
