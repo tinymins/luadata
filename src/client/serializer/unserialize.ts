@@ -95,35 +95,52 @@ const TABLE_ENTRIES_SORTER = (kv1: TableNode['entries'][number], kv2: TableNode[
   return String(k1).localeCompare(String(k2));
 };
 
-const recToMapR = (o: Map<unknown, unknown> | Record<string, unknown>): Map<unknown, unknown> => {
+const recToMapR = (...list: (Map<unknown, unknown> | Record<string, unknown>)[]): Map<unknown, unknown> => {
   const m = new Map();
-  if (o instanceof Map) {
-    for (const [k, v] of o.entries()) {
-      m.set(k, v instanceof Map || (v && typeof v === 'object')
-        ? recToMapR(v as Record<string, unknown>)
-        : v);
-    }
-  } else {
-    for (const [k, v] of Object.entries(o)) {
-      m.set(k, v instanceof Map || (v && typeof v === 'object')
-        ? recToMapR(v as Record<string, unknown>)
-        : v);
+  for (const o of list) {
+    if (o instanceof Map) {
+      for (const [k, v] of o.entries()) {
+        m.set(k, v instanceof Map || (v && typeof v === 'object')
+          ? recToMapR(v as Record<string, unknown>)
+          : v);
+      }
+    } else {
+      for (const [k, v] of Object.entries(o)) {
+        m.set(k, v instanceof Map || (v && typeof v === 'object')
+          ? recToMapR(v as Record<string, unknown>)
+          : v);
+      }
     }
   }
   return m;
 };
 
-const LUA_GLOBAL = {
+const LUA_BUILTIN_VAR = recToMapR({
   true: true,
   false: false,
   nil: void 0,
+});
+
+const LUA_GLOBAL = {
+  math: {
+    pi: Math.PI,
+  },
 };
+
+const createGlobal = (rawGlobal: UnserializeOptions['global'] = {}) => {
+  const global: Map<unknown, unknown> = recToMapR(LUA_GLOBAL, rawGlobal);
+  if (!global.has('_G')) {
+    global.set('_G', global);
+  }
+  return global;
+};
+
 const REPORT_MESSAGE = 'this should never occur, please report this issue to "https://github.com/tinymins/luadata/issues"';
 
 const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map', global: rawGlobal = {}, strictGlobal = true }: UnserializeOptions = {}): T => {
   const rawBin = raw;
   const rawBinLength = rawBin.length;
-  const global: Map<unknown, unknown> = recToMapR(Object.assign(rawGlobal, LUA_GLOBAL));
+  const global = createGlobal(rawGlobal);
   const stack: Node[] = [];
   const root: RootNode = {
     type: 'root',
@@ -476,7 +493,6 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
       }
     } else if (node.type === 'variable') {
       if (node.state === void 0) {
-        node.currentValue = global;
         node.isCurrentGlobal = true;
         node.state = 'SIMPLE_KEY_START';
       }
@@ -501,16 +517,22 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
         ) {
           // pass
         } else {
-          if (!(node.currentValue instanceof Map)) {
-            errmsg = 'attempt to index a non-table value.';
-            break;
-          }
           const key = rawBin.slice(node.startPos, pos);
-          if (strictGlobal && node.isCurrentGlobal && !global.has(key)) {
-            errmsg = 'attempt to refer a non-exists global variable.';
-            break;
+          if (node.isCurrentGlobal) {
+            if (strictGlobal && !global.has(key) && !LUA_BUILTIN_VAR.has(key)) {
+              errmsg = 'attempt to refer a non-exists global variable.';
+              break;
+            }
+            node.currentValue = LUA_BUILTIN_VAR.has(key)
+              ? LUA_BUILTIN_VAR.get(key)
+              : global.get(key);
+          } else {
+            if (!(node.currentValue instanceof Map)) {
+              errmsg = 'attempt to index a non-table value.';
+              break;
+            }
+            node.currentValue = node.currentValue.get(key);
           }
-          node.currentValue = node.currentValue.get(key);
           node.isCurrentGlobal = false;
           node.state = 'WAIT_NEXT';
           pos -= 1;
@@ -535,11 +557,22 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           pos -= 1;
         }
       } else if (node.state === 'KEY_EXPRESSION_OPEN') {
-        if (!(node.currentValue instanceof Map)) {
-          errmsg = 'attempt to index a non-table value.';
-          break;
+        const key = node.childValue;
+        if (node.isCurrentGlobal) {
+          if (strictGlobal && !global.has(key) && !LUA_BUILTIN_VAR.has(key)) {
+            errmsg = 'attempt to refer a non-exists global variable.';
+            break;
+          }
+          node.currentValue = LUA_BUILTIN_VAR.has(key)
+            ? LUA_BUILTIN_VAR.get(key)
+            : global.get(key);
+        } else {
+          if (!(node.currentValue instanceof Map)) {
+            errmsg = 'attempt to index a non-table value.';
+            break;
+          }
+          node.currentValue = node.currentValue.get(key);
         }
-        node.currentValue = node.currentValue.get(node.childValue);
         node.isCurrentGlobal = false;
         node.state = 'KEY_EXPRESSION_FINISH';
         pos -= 1;
