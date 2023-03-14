@@ -115,6 +115,26 @@ const recToMapR = (...list: (Map<unknown, unknown> | Record<string, unknown>)[])
   return m;
 };
 
+const mapToRecR = (...list: (Map<unknown, unknown> | Record<string, unknown>)[]): Record<string, unknown> => {
+  const r: Record<string, unknown> = {};
+  for (const o of list) {
+    if (o instanceof Map) {
+      for (const [k, v] of o.entries()) {
+        r[String(k)] = v instanceof Map || (v && typeof v === 'object')
+          ? mapToRecR(v as Record<string, unknown>)
+          : v;
+      }
+    } else {
+      for (const [k, v] of Object.entries(o)) {
+        r[k] = v instanceof Map || (v && typeof v === 'object')
+          ? mapToRecR(v as Record<string, unknown>)
+          : v;
+      }
+    }
+  }
+  return r;
+};
+
 const LUA_BUILTIN_VAR = recToMapR({
   true: true,
   false: false,
@@ -551,7 +571,13 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
             errmsg = `VariableNode parent node is not a ValueNode, ${REPORT_MESSAGE}.`;
             break;
           }
-          parentNode.data = node.currentValue;
+          if (node.currentValue instanceof Map || (node.currentValue && typeof node.currentValue === 'object')) {
+            parentNode.data = dictType === 'map'
+              ? recToMapR(node.currentValue as Record<string, unknown>)
+              : mapToRecR(node.currentValue as Map<unknown, unknown>);
+          } else {
+            parentNode.data = node.currentValue;
+          }
           parentNode.fulfilled = true;
           node = parentNode;
           pos -= 1;
