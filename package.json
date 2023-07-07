@@ -23,6 +23,14 @@
     "eslint:fix": "eslint \"src/**/*.{js,jsx,ts,tsx,json}\" --format pretty --fix",
     "eslint:commit": "eslint --format pretty"
   },
+  "homepage": "https://github.com/tinymins/luadata#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinymins/luadata.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tinymins/luadata/issues"
+  },
   "keywords": [
     "lua",
     "luadata",
