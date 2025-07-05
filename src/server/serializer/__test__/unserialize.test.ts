@@ -6,6 +6,7 @@ describe('unserialize module', () => {
       .toThrow('Unserialize luadata failed on pos 4:\n    "str\n        ^\n    unexpected string ending: missing close quote.');
     expect(unserialize('"str"')).toBe('str');
     expect(unserialize('"\\"str"')).toBe('"str');
+    expect(unserialize('"\\"str\\""')).toBe('"str"');
   });
 
   test('unserialize bool', () => {

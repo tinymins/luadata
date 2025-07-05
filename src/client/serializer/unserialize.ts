@@ -293,9 +293,9 @@ const unserialize = <T = unknown>(raw: string, { tuple, verbose, dictType = 'map
           break;
         }
         parentNode.data = rawBin.slice(node.startPos, pos)
-          .replace('\\\n', '\n')
-          .replace('\\"', '"')
-          .replace('\\\\', '\\');
+          .replace(/\\\n/gu, '\n')
+          .replace(/\\"/gu, '"')
+          .replace(/\\\\/gu, '\\');
         parentNode.fulfilled = true;
         node = parentNode;
       }
